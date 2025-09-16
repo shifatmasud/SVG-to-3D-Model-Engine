@@ -1,0 +1,5 @@
+{
+  "name": "SVG to 3D Model Engine",
+  "description": "A powerful web-based tool that instantly converts your 2D SVG vector graphics into interactive 3D models using Three.js. Upload an SVG file, adjust extrusion settings, and explore your creation in a dynamic 3D environment.",
+  "requestFramePermissions": []
+}
