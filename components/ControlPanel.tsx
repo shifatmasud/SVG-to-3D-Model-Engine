@@ -8,6 +8,8 @@ interface ControlPanelProps {
   onClear: () => void;
   extrusion: number;
   setExtrusion: (value: number) => void;
+  bevelSegments: number;
+  setBevelSegments: (value: number) => void;
   isLoading: boolean;
   hasModel: boolean;
   error: string | null;
@@ -18,6 +20,12 @@ interface ControlPanelProps {
   setRoughness: (value: number) => void;
   metalness: number;
   setMetalness: (value: number) => void;
+  transmission: number;
+  setTransmission: (value: number) => void;
+  ior: number;
+  setIor: (value: number) => void;
+  thickness: number;
+  setThickness: (value: number) => void;
   // AI Palette props
   onGeneratePalette: (prompt: string) => void;
   paletteColors: string[];
@@ -32,6 +40,8 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   onClear,
   extrusion,
   setExtrusion,
+  bevelSegments,
+  setBevelSegments,
   isLoading,
   hasModel,
   error,
@@ -41,6 +51,12 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   setRoughness,
   metalness,
   setMetalness,
+  transmission,
+  setTransmission,
+  ior,
+  setIor,
+  thickness,
+  setThickness,
   onGeneratePalette,
   paletteColors,
   isGeneratingPalette,
@@ -53,6 +69,48 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
     e.preventDefault();
     onGeneratePalette(palettePrompt);
   };
+  
+  const handlePresetClick = (preset: 'matte' | 'plastic' | 'metal' | 'glass') => {
+    switch (preset) {
+        case 'matte':
+            setColor('#cccccc');
+            setRoughness(1.0);
+            setMetalness(0.0);
+            setTransmission(0.0);
+            break;
+        case 'plastic':
+            setColor('#ffffff');
+            setRoughness(0.1);
+            setMetalness(0.1);
+            setTransmission(0.0);
+            break;
+        case 'metal':
+            setColor('#FFD700'); // gold-ish
+            setRoughness(0.2);
+            setMetalness(1.0);
+            setTransmission(0.0);
+            break;
+        case 'glass':
+            setColor('#ffffff');
+            setRoughness(0.05);
+            setMetalness(0.0);
+            setTransmission(1.0);
+            setIor(1.5);
+            setThickness(1.5);
+            break;
+    }
+  }
+
+  const PresetButton: React.FC<{onClick: () => void, children: React.ReactNode}> = ({ onClick, children }) => (
+    <button
+      onClick={onClick}
+      type="button"
+      className="w-full text-center px-3 py-2 text-sm font-semibold text-gray-200 bg-gray-700 rounded-md shadow-sm hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-offset-gray-900 transition-colors"
+    >
+      {children}
+    </button>
+  );
+
 
   return (
     <aside className="w-96 flex-shrink-0 bg-gray-900 border-r border-gray-700 p-6 flex flex-col space-y-4 overflow-y-auto">
@@ -78,10 +136,30 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
                     step="1"
                     value={extrusion}
                     onChange={(e) => setExtrusion(Number(e.target.value))}
-                    className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                    className="w-full appearance-none cursor-pointer"
                   />
                   <span className="text-sm font-mono bg-gray-800 px-2 py-1 rounded w-16 text-center">
                     {extrusion.toFixed(0)}
+                  </span>
+                </div>
+              </div>
+              <div>
+                <label htmlFor="bevel-smoothness" className="block text-sm font-medium text-gray-300 mb-2">
+                  Bevel Smoothness
+                </label>
+                <div className="flex items-center space-x-3">
+                  <input
+                    id="bevel-smoothness"
+                    type="range"
+                    min="0"
+                    max="10"
+                    step="1"
+                    value={bevelSegments}
+                    onChange={(e) => setBevelSegments(Number(e.target.value))}
+                    className="w-full appearance-none cursor-pointer"
+                  />
+                  <span className="text-sm font-mono bg-gray-800 px-2 py-1 rounded w-16 text-center">
+                    {bevelSegments.toFixed(0)}
                   </span>
                 </div>
               </div>
@@ -89,7 +167,20 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
           </CollapsibleSection>
           
           <CollapsibleSection title="3. Material Editor">
-            <div className="space-y-4">
+            <div className="space-y-6">
+                 {/* Presets */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Material Presets
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                      <PresetButton onClick={() => handlePresetClick('matte')}>Matte</PresetButton>
+                      <PresetButton onClick={() => handlePresetClick('plastic')}>Glossy</PresetButton>
+                      <PresetButton onClick={() => handlePresetClick('metal')}>Metal</PresetButton>
+                      <PresetButton onClick={() => handlePresetClick('glass')}>Glass</PresetButton>
+                  </div>
+                </div>
+
                 {/* Color */}
                 <div>
                   <label htmlFor="model-color" className="block text-sm font-medium text-gray-300 mb-2">
@@ -123,7 +214,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
                     type="range" min="0" max="1" step="0.01"
                     value={roughness}
                     onChange={(e) => setRoughness(Number(e.target.value))}
-                    className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                    className="w-full appearance-none cursor-pointer"
                     />
                     <span className="text-sm font-mono bg-gray-800 px-2 py-1 rounded w-16 text-center">
                     {roughness.toFixed(2)}
@@ -142,10 +233,67 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
                     type="range" min="0" max="1" step="0.01"
                     value={metalness}
                     onChange={(e) => setMetalness(Number(e.target.value))}
-                    className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                    className="w-full appearance-none cursor-pointer"
                     />
                     <span className="text-sm font-mono bg-gray-800 px-2 py-1 rounded w-16 text-center">
                     {metalness.toFixed(2)}
+                    </span>
+                </div>
+                </div>
+
+                {/* Transmission */}
+                <div>
+                <label htmlFor="transmission-slider" className="block text-sm font-medium text-gray-300 mb-2">
+                    Transmission (Glass Effect)
+                </label>
+                <div className="flex items-center space-x-3">
+                    <input
+                    id="transmission-slider"
+                    type="range" min="0" max="1" step="0.01"
+                    value={transmission}
+                    onChange={(e) => setTransmission(Number(e.target.value))}
+                    className="w-full appearance-none cursor-pointer"
+                    />
+                    <span className="text-sm font-mono bg-gray-800 px-2 py-1 rounded w-16 text-center">
+                    {transmission.toFixed(2)}
+                    </span>
+                </div>
+                </div>
+
+                {/* Index of Refraction */}
+                <div>
+                <label htmlFor="ior-slider" className="block text-sm font-medium text-gray-300 mb-2">
+                    Index of Refraction
+                </label>
+                <div className="flex items-center space-x-3">
+                    <input
+                    id="ior-slider"
+                    type="range" min="1" max="2.3" step="0.01"
+                    value={ior}
+                    onChange={(e) => setIor(Number(e.target.value))}
+                    className="w-full appearance-none cursor-pointer"
+                    />
+                    <span className="text-sm font-mono bg-gray-800 px-2 py-1 rounded w-16 text-center">
+                    {ior.toFixed(2)}
+                    </span>
+                </div>
+                </div>
+
+                {/* Thickness */}
+                <div>
+                <label htmlFor="thickness-slider" className="block text-sm font-medium text-gray-300 mb-2">
+                    Thickness (for Glass)
+                </label>
+                <div className="flex items-center space-x-3">
+                    <input
+                    id="thickness-slider"
+                    type="range" min="0" max="5" step="0.01"
+                    value={thickness}
+                    onChange={(e) => setThickness(Number(e.target.value))}
+                    className="w-full appearance-none cursor-pointer"
+                    />
+                    <span className="text-sm font-mono bg-gray-800 px-2 py-1 rounded w-16 text-center">
+                    {thickness.toFixed(2)}
                     </span>
                 </div>
                 </div>

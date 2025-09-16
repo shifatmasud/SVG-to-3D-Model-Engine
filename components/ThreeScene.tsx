@@ -7,16 +7,30 @@ import { createModelFromSVG } from '../services/svgTo3D';
 interface ThreeSceneProps {
   svgData: string | null;
   extrusionDepth: number;
+  bevelSegments: number;
   color: string;
   roughness: number;
   metalness: number;
+  transmission: number;
+  ior: number;
+  thickness: number;
 }
 
 export interface ThreeSceneRef {
   model: THREE.Group | null;
 }
 
-const ThreeScene = forwardRef<ThreeSceneRef, ThreeSceneProps>(({ svgData, extrusionDepth, color, roughness, metalness }, ref) => {
+const ThreeScene = forwardRef<ThreeSceneRef, ThreeSceneProps>(({ 
+  svgData, 
+  extrusionDepth, 
+  bevelSegments,
+  color, 
+  roughness, 
+  metalness, 
+  transmission,
+  ior,
+  thickness
+}, ref) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const modelRef = useRef<THREE.Group | null>(null);
 
@@ -31,14 +45,22 @@ const ThreeScene = forwardRef<ThreeSceneRef, ThreeSceneProps>(({ svgData, extrus
     if (modelRef.current) {
         modelRef.current.traverse((object) => {
             if (object instanceof THREE.Mesh) {
-                const material = object.material as THREE.MeshStandardMaterial;
+                // FIX: Cast to MeshPhysicalMaterial to support transmission, ior, and thickness for glass effects.
+                const material = object.material as THREE.MeshPhysicalMaterial;
                 material.color.set(color).convertSRGBToLinear();
                 material.roughness = roughness;
                 material.metalness = metalness;
+                material.transmission = transmission;
+                material.ior = ior;
+                material.thickness = thickness;
+
+                // Transparency must be enabled for transmission to work
+                material.transparent = transmission > 0;
+                material.needsUpdate = true; // Required for some material property changes
             }
         });
     }
-  }, [color, roughness, metalness]);
+  }, [color, roughness, metalness, transmission, ior, thickness]);
 
   useEffect(() => {
     if (!mountRef.current) return;
@@ -92,7 +114,7 @@ const ThreeScene = forwardRef<ThreeSceneRef, ThreeSceneProps>(({ svgData, extrus
         }
 
         if (svgData) {
-            const model = createModelFromSVG(svgData, extrusionDepth, { color, roughness, metalness });
+            const model = createModelFromSVG(svgData, extrusionDepth, bevelSegments, { color, roughness, metalness, transmission, ior, thickness });
             modelRef.current = model;
             scene.add(model);
             
@@ -138,7 +160,7 @@ const ThreeScene = forwardRef<ThreeSceneRef, ThreeSceneProps>(({ svgData, extrus
       renderer.dispose();
       // You would also dispose of geometries and materials here for a full cleanup
     };
-  }, [svgData, extrusionDepth]);
+  }, [svgData, extrusionDepth, bevelSegments]);
 
   return <div ref={mountRef} className="w-full h-full" />;
 });

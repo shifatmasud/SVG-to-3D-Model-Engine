@@ -6,9 +6,12 @@ interface MaterialProps {
     color: string;
     roughness: number;
     metalness: number;
+    transmission: number;
+    ior: number;
+    thickness: number;
 }
 
-export const createModelFromSVG = (svgString: string, extrusionDepth: number, materialProps: MaterialProps): THREE.Group => {
+export const createModelFromSVG = (svgString: string, extrusionDepth: number, bevelSegments: number, materialProps: MaterialProps): THREE.Group => {
   const loader = new SVGLoader();
   const data = loader.parse(svgString);
 
@@ -18,7 +21,7 @@ export const createModelFromSVG = (svgString: string, extrusionDepth: number, ma
     bevelEnabled: true,
     bevelThickness: 0.5,
     bevelSize: 0.5,
-    bevelSegments: 2,
+    bevelSegments: bevelSegments,
   };
 
   data.paths.forEach((path) => {
@@ -27,11 +30,16 @@ export const createModelFromSVG = (svgString: string, extrusionDepth: number, ma
     // Use provided material props, but fall back to SVG fill color if it exists
     const initialColor = (fillColor && fillColor !== 'none') ? fillColor : materialProps.color;
 
-    const material = new THREE.MeshStandardMaterial({
+    // FIX: Use MeshPhysicalMaterial to support transmission, ior, and thickness for glass effects.
+    const material = new THREE.MeshPhysicalMaterial({
         color: new THREE.Color(initialColor).convertSRGBToLinear(),
         roughness: materialProps.roughness,
         metalness: materialProps.metalness,
         side: THREE.DoubleSide,
+        // Glass properties
+        transmission: materialProps.transmission,
+        ior: materialProps.ior,
+        thickness: materialProps.thickness,
     });
 
     if (path.userData?.style?.fill !== 'none' && path.userData?.style?.fill !== undefined) {

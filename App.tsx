@@ -14,14 +14,18 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [extrusion, setExtrusion] = useState<number>(10);
+  const [bevelSegments, setBevelSegments] = useState<number>(2);
   const [key, setKey] = useState<number>(0);
 
-  // New state for material properties
+  // Material properties state
   const [color, setColor] = useState<string>('#cccccc');
   const [roughness, setRoughness] = useState<number>(0.5);
   const [metalness, setMetalness] = useState<number>(0.1);
+  const [transmission, setTransmission] = useState<number>(0); // for glass
+  const [ior, setIor] = useState<number>(1.5); // index of refraction
+  const [thickness, setThickness] = useState<number>(0.5); // for transmission
 
-  // New state for AI Palette Generator
+  // AI Palette Generator state
   const [paletteColors, setPaletteColors] = useState<string[]>([]);
   const [isGeneratingPalette, setIsGeneratingPalette] = useState<boolean>(false);
   const [paletteError, setPaletteError] = useState<string | null>(null);
@@ -57,10 +61,15 @@ const App: React.FC = () => {
     setError(null);
     setPaletteColors([]);
     setPaletteError(null);
+    // Reset all material properties
     setColor('#cccccc');
     setRoughness(0.5);
     setMetalness(0.1);
+    setTransmission(0);
+    setIor(1.5);
+    setThickness(0.5);
     setExtrusion(10);
+    setBevelSegments(2);
     setKey(prevKey => prevKey + 1);
   }, []);
 
@@ -111,6 +120,8 @@ const App: React.FC = () => {
           onClear={handleClear}
           extrusion={extrusion}
           setExtrusion={setExtrusion}
+          bevelSegments={bevelSegments}
+          setBevelSegments={setBevelSegments}
           isLoading={isLoading}
           hasModel={!!svgData}
           error={error}
@@ -121,6 +132,12 @@ const App: React.FC = () => {
           setRoughness={setRoughness}
           metalness={metalness}
           setMetalness={setMetalness}
+          transmission={transmission}
+          setTransmission={setTransmission}
+          ior={ior}
+          setIor={setIor}
+          thickness={thickness}
+          setThickness={setThickness}
           // AI Palette props
           onGeneratePalette={handleGeneratePalette}
           paletteColors={paletteColors}
@@ -151,9 +168,13 @@ const App: React.FC = () => {
             ref={sceneRef}
             svgData={svgData} 
             extrusionDepth={extrusion} 
+            bevelSegments={bevelSegments}
             color={color}
             roughness={roughness}
             metalness={metalness}
+            transmission={transmission}
+            ior={ior}
+            thickness={thickness}
           />
         </main>
       </div>
