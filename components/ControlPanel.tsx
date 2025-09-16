@@ -31,6 +31,9 @@ interface ControlPanelProps {
   paletteColors: string[];
   isGeneratingPalette: boolean;
   paletteError: string | null;
+  // Special Effects
+  isGlitchEffectEnabled: boolean;
+  setIsGlitchEffectEnabled: (value: boolean) => void;
   // Export
   onExport: () => void;
 }
@@ -61,6 +64,8 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   paletteColors,
   isGeneratingPalette,
   paletteError,
+  isGlitchEffectEnabled,
+  setIsGlitchEffectEnabled,
   onExport,
 }) => {
   const [palettePrompt, setPalettePrompt] = useState('');
@@ -337,6 +342,27 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
                     </div>
                 )}
             </form>
+          </CollapsibleSection>
+
+          <CollapsibleSection title="5. Special Effects">
+              <div className="flex items-center justify-between">
+                  <label htmlFor="glitch-toggle" className="text-sm font-medium text-gray-300 cursor-pointer">
+                      Glitch Effect
+                  </label>
+                  <button
+                      type="button"
+                      id="glitch-toggle"
+                      onClick={() => setIsGlitchEffectEnabled(!isGlitchEffectEnabled)}
+                      className={`${isGlitchEffectEnabled ? 'bg-indigo-600' : 'bg-gray-700'} relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-900`}
+                      role="switch"
+                      aria-checked={isGlitchEffectEnabled}
+                  >
+                      <span
+                          aria-hidden="true"
+                          className={`${isGlitchEffectEnabled ? 'translate-x-5' : 'translate-x-0'} pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
+                      />
+                  </button>
+              </div>
           </CollapsibleSection>
         
           <div className="!mt-auto pt-6 border-t border-gray-700 space-y-4">

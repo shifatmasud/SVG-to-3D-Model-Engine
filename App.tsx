@@ -30,6 +30,9 @@ const App: React.FC = () => {
   const [isGeneratingPalette, setIsGeneratingPalette] = useState<boolean>(false);
   const [paletteError, setPaletteError] = useState<string | null>(null);
 
+  // Special effects state
+  const [isGlitchEffectEnabled, setIsGlitchEffectEnabled] = useState<boolean>(false);
+
   const sceneRef = useRef<ThreeSceneRef>(null);
 
   const handleFileLoad = useCallback((svgContent: string) => {
@@ -70,6 +73,7 @@ const App: React.FC = () => {
     setThickness(0.5);
     setExtrusion(10);
     setBevelSegments(2);
+    setIsGlitchEffectEnabled(false); // Reset effect
     setKey(prevKey => prevKey + 1);
   }, []);
 
@@ -94,6 +98,9 @@ const App: React.FC = () => {
   const handleExport = () => {
     if (sceneRef.current?.model) {
         const exporter = new GLTFExporter();
+        const options = {
+            animations: sceneRef.current.animations || []
+        };
         exporter.parse(
             sceneRef.current.model,
             (gltf) => {
@@ -106,7 +113,8 @@ const App: React.FC = () => {
             (error) => {
                 console.error('An error happened during parsing', error);
                 alert("Could not export model. See console for details.");
-            }
+            },
+            options
         );
     }
   };
@@ -143,6 +151,9 @@ const App: React.FC = () => {
           paletteColors={paletteColors}
           isGeneratingPalette={isGeneratingPalette}
           paletteError={paletteError}
+          // Special Effects
+          isGlitchEffectEnabled={isGlitchEffectEnabled}
+          setIsGlitchEffectEnabled={setIsGlitchEffectEnabled}
           // Export prop
           onExport={handleExport}
         />
@@ -175,6 +186,7 @@ const App: React.FC = () => {
             transmission={transmission}
             ior={ior}
             thickness={thickness}
+            isGlitchEffectEnabled={isGlitchEffectEnabled}
           />
         </main>
       </div>
