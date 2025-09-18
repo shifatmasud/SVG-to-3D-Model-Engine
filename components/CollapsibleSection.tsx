@@ -1,4 +1,3 @@
-
 import React, { useState, ReactNode } from 'react';
 
 interface CollapsibleSectionProps {
@@ -14,17 +13,19 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(isOpenDefault);
 
+  const containerClasses = `collapsible-section ${isOpen ? 'is-open' : ''}`;
+
   return (
-    <div className="border border-gray-700 rounded-lg bg-gray-800/50">
+    <div className={containerClasses}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between p-4 text-left text-indigo-300 font-semibold focus:outline-none"
+        className="collapsible-section__toggle"
         aria-expanded={isOpen}
       >
         <span>{title}</span>
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          className={`h-5 w-5 transform transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+          className="collapsible-section__icon"
           viewBox="0 0 20 20"
           fill="currentColor"
         >
@@ -35,11 +36,11 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
           />
         </svg>
       </button>
-      {isOpen && (
-        <div className="p-4 border-t border-gray-700">
+      <div className="collapsible-section__content-wrapper">
+        <div className="collapsible-section__content">
           {children}
         </div>
-      )}
+      </div>
     </div>
   );
 };

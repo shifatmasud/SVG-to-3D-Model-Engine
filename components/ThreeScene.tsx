@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -242,7 +241,7 @@ const ThreeScene = forwardRef<ThreeSceneRef, ThreeSceneProps>(({
     const currentMount = mountRef.current;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x2d3748); 
+    scene.background = new THREE.Color(0x171717); 
 
     const camera = new THREE.PerspectiveCamera(75, currentMount.clientWidth / currentMount.clientHeight, 0.1, 1000);
     camera.position.z = 50;
@@ -281,7 +280,7 @@ const ThreeScene = forwardRef<ThreeSceneRef, ThreeSceneProps>(({
     directionalLight2.position.set(-50, 50, -50);
     scene.add(directionalLight2);
     
-    const gridHelper = new THREE.GridHelper(200, 50, 0x4a5568, 0x4a5568);
+    const gridHelper = new THREE.GridHelper(200, 50, 0x404040, 0x404040);
     scene.add(gridHelper);
     
     const clock = new THREE.Clock();
@@ -357,7 +356,7 @@ const ThreeScene = forwardRef<ThreeSceneRef, ThreeSceneProps>(({
     };
   }, [svgData, extrusionDepth, bevelSegments]);
 
-  return <div ref={mountRef} className="w-full h-full" />;
+  return <div ref={mountRef} className="scene-view" />;
 });
 
 export default ThreeScene;

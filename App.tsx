@@ -1,10 +1,8 @@
-
 import React, { useState, useCallback, useRef } from 'react';
 import Header from './components/Header';
 import ControlPanel from './components/ControlPanel';
 import ThreeScene, { ThreeSceneRef } from './components/ThreeScene';
 import Loader from './components/Loader';
-import { generateColorPalette } from './services/geminiService';
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
 import * as THREE from 'three';
 
@@ -13,22 +11,17 @@ const App: React.FC = () => {
   const [svgData, setSvgData] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [extrusion, setExtrusion] = useState<number>(10);
-  const [bevelSegments, setBevelSegments] = useState<number>(2);
   const [key, setKey] = useState<number>(0);
 
-  // Material properties state
+  // Model & Material properties state
+  const [extrusion, setExtrusion] = useState<number>(10);
+  const [bevelSegments, setBevelSegments] = useState<number>(2);
   const [color, setColor] = useState<string>('#cccccc');
   const [roughness, setRoughness] = useState<number>(0.5);
   const [metalness, setMetalness] = useState<number>(0.1);
-  const [transmission, setTransmission] = useState<number>(0); // for glass
-  const [ior, setIor] = useState<number>(1.5); // index of refraction
-  const [thickness, setThickness] = useState<number>(0.5); // for transmission
-
-  // AI Palette Generator state
-  const [paletteColors, setPaletteColors] = useState<string[]>([]);
-  const [isGeneratingPalette, setIsGeneratingPalette] = useState<boolean>(false);
-  const [paletteError, setPaletteError] = useState<string | null>(null);
+  const [transmission, setTransmission] = useState<number>(0);
+  const [ior, setIor] = useState<number>(1.5);
+  const [thickness, setThickness] = useState<number>(0.5);
 
   // Special effects state
   const [isGlitchEffectEnabled, setIsGlitchEffectEnabled] = useState<boolean>(false);
@@ -38,8 +31,6 @@ const App: React.FC = () => {
   const handleFileLoad = useCallback((svgContent: string) => {
     setIsLoading(true);
     setError(null);
-    setPaletteColors([]);
-    setPaletteError(null);
     setTimeout(() => {
       try {
         const parser = new DOMParser();
@@ -62,9 +53,7 @@ const App: React.FC = () => {
   const handleClear = useCallback(() => {
     setSvgData(null);
     setError(null);
-    setPaletteColors([]);
-    setPaletteError(null);
-    // Reset all material properties
+    // Reset all properties
     setColor('#cccccc');
     setRoughness(0.5);
     setMetalness(0.1);
@@ -73,28 +62,10 @@ const App: React.FC = () => {
     setThickness(0.5);
     setExtrusion(10);
     setBevelSegments(2);
-    setIsGlitchEffectEnabled(false); // Reset effect
+    setIsGlitchEffectEnabled(false);
     setKey(prevKey => prevKey + 1);
   }, []);
 
-  const handleGeneratePalette = async (prompt: string) => {
-    if (!prompt) {
-        setPaletteError("Please enter a description for the palette.");
-        return;
-    }
-    setIsGeneratingPalette(true);
-    setPaletteError(null);
-    try {
-        const colors = await generateColorPalette(prompt);
-        setPaletteColors(colors);
-    } catch (error) {
-        setPaletteError("Could not generate palette. Please try again.");
-        console.error(error);
-    } finally {
-        setIsGeneratingPalette(false);
-    }
-  };
-  
   const handleExport = () => {
     if (sceneRef.current?.model) {
         const exporter = new GLTFExporter();
@@ -120,9 +91,9 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-900 text-white overflow-hidden">
+    <div className="app-container">
       <Header />
-      <div className="flex flex-grow overflow-hidden">
+      <div className="main-layout">
         <ControlPanel
           onFileLoad={handleFileLoad}
           onClear={handleClear}
@@ -146,31 +117,28 @@ const App: React.FC = () => {
           setIor={setIor}
           thickness={thickness}
           setThickness={setThickness}
-          // AI Palette props
-          onGeneratePalette={handleGeneratePalette}
-          paletteColors={paletteColors}
-          isGeneratingPalette={isGeneratingPalette}
-          paletteError={paletteError}
           // Special Effects
           isGlitchEffectEnabled={isGlitchEffectEnabled}
           setIsGlitchEffectEnabled={setIsGlitchEffectEnabled}
           // Export prop
           onExport={handleExport}
         />
-        <main className="flex-grow relative bg-gray-800">
+        <main className="scene-container">
           {isLoading && (
-             <div className="absolute inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75 z-20">
+             <div className="loader-overlay">
               <Loader />
             </div>
           )}
           {!svgData && !isLoading && (
-            <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
-                <div className="text-center text-gray-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-16 w-16 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4l2 2h4a2 2 0 012 2v12a4 4 0 01-4 4H7z" />
+            <div className="empty-state">
+                <div className="empty-state__content">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="empty-state__icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M20 7L8.3 14.053M20 7l-4.57 11.253L8.3 14.053M20 7L11.7 4 8.3 14.053" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 17.253L8.3 14.053 11.7 4 4 17.253z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 17.253L15.43 21 11.7 4" />
                     </svg>
-                    <h2 className="mt-4 text-xl font-semibold">SVG to 3D Model Engine</h2>
-                    <p className="mt-2">Upload an SVG file to get started.</p>
+                    <h2 className="empty-state__title">SVG to 3D Engine</h2>
+                    <p className="empty-state__subtitle">Upload an SVG file to begin</p>
                 </div>
             </div>
           )}

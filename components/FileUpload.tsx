@@ -1,4 +1,3 @@
-
 import React, { useCallback, useState } from 'react';
 
 interface FileUploadProps {
@@ -58,10 +57,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileLoad, disabled }) => {
     }
   };
 
-  const baseClasses = "flex justify-center items-center px-6 pt-5 pb-6 border-2 border-dashed rounded-md transition-colors duration-200";
-  const inactiveClasses = "border-gray-600 hover:border-indigo-400";
-  const activeClasses = "border-indigo-400 bg-gray-800";
-  const disabledClasses = "opacity-50 cursor-not-allowed";
+  const containerClasses = `file-upload ${isDragging ? 'is-dragging' : ''} ${disabled ? 'is-disabled' : ''}`;
 
   return (
     <div
@@ -69,11 +65,11 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileLoad, disabled }) => {
       onDragOver={handleDragOver}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
-      className={`${baseClasses} ${disabled ? disabledClasses : (isDragging ? activeClasses : inactiveClasses)}`}
+      className={containerClasses}
     >
-      <div className="space-y-1 text-center">
+      <div className="file-upload__inner">
         <svg
-          className="mx-auto h-12 w-12 text-gray-500"
+          className="file-upload__icon"
           stroke="currentColor"
           fill="none"
           viewBox="0 0 48 48"
@@ -86,17 +82,17 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileLoad, disabled }) => {
             strokeLinejoin="round"
           />
         </svg>
-        <div className="flex text-sm text-gray-400">
+        <div className="file-upload__text">
           <label
             htmlFor="file-upload"
-            className={`relative cursor-pointer bg-gray-900 rounded-md font-medium text-indigo-400 hover:text-indigo-300 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-offset-gray-900 focus-within:ring-indigo-500`}
+            className="file-upload__label"
           >
             <span>Upload a file</span>
             <input id="file-upload" name="file-upload" type="file" className="sr-only" accept=".svg" onChange={handleChange} disabled={disabled} />
           </label>
-          <p className="pl-1">or drag and drop</p>
+          <p>or drag and drop</p>
         </div>
-        <p className="text-xs text-gray-500">SVG files only</p>
+        <p style={{fontSize: '0.75rem', color: 'var(--color-text-placeholder)', marginTop: '4px'}}>SVG files only</p>
       </div>
     </div>
   );
