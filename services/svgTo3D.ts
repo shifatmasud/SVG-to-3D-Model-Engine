@@ -38,7 +38,7 @@ export const createModelFromSVG = (svgString: string, extrusionDepth: number, be
         transmission: materialProps.transmission,
         ior: materialProps.ior,
         thickness: materialProps.thickness,
-        // FIX: The 'morphTargets' property must be set in the constructor to enable morph targets for effects like "Glitch".
+        // FIX: The 'morphTargets' property should be passed in the material constructor.
         morphTargets: true,
     });
     material.color.convertSRGBToLinear();
