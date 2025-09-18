@@ -1,16 +1,12 @@
-
-
-
-
 import React, { useState, useCallback, useRef, useEffect, useImperativeHandle, forwardRef, useId, ReactNode } from 'react';
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js';
-import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
-import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
-import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import { OrbitControls } from 'https://aistudiocdn.com/three@0.180.0/examples/jsm/controls/OrbitControls.js';
+import { SVGLoader } from 'https://aistudiocdn.com/three@0.180.0/examples/jsm/loaders/SVGLoader.js';
+import { GLTFExporter } from 'https://aistudiocdn.com/three@0.180.0/examples/jsm/exporters/GLTFExporter.js';
+import { EffectComposer } from 'https://aistudiocdn.com/three@0.180.0/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'https://aistudiocdn.com/three@0.180.0/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'https://aistudiocdn.com/three@0.180.0/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'https://aistudiocdn.com/three@0.180.0/examples/jsm/postprocessing/ShaderPass.js';
 
 // --- STYLES (from styles.ts) ---
 
