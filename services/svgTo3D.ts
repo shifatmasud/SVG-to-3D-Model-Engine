@@ -1,4 +1,5 @@
 
+
 import * as THREE from 'three';
 import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js';
 
@@ -37,6 +38,8 @@ export const createModelFromSVG = (svgString: string, extrusionDepth: number, be
         transmission: materialProps.transmission,
         ior: materialProps.ior,
         thickness: materialProps.thickness,
+        // FIX: The 'morphTargets' property must be set in the constructor to enable morph targets for effects like "Glitch".
+        morphTargets: true,
     });
     material.color.convertSRGBToLinear();
 

@@ -13,6 +13,7 @@ import BloomIcon from './icons/BloomIcon';
 import PixelationIcon from './icons/PixelationIcon';
 import ChromaticAberrationIcon from './icons/ChromaticAberrationIcon';
 import ScanLinesIcon from './icons/ScanLinesIcon';
+import GridIcon from './icons/GridIcon';
 
 interface ControlPanelProps {
   onFileLoad: (svgContent: string) => void;
@@ -24,6 +25,7 @@ interface ControlPanelProps {
   isLoading: boolean;
   hasModel: boolean;
   error: string | null;
+  // Material
   color: string;
   setColor: (value: string) => void;
   roughness: number;
@@ -36,6 +38,14 @@ interface ControlPanelProps {
   setIor: (value: number) => void;
   thickness: number;
   setThickness: (value: number) => void;
+  // Scene
+  lightingPreset: string;
+  setLightingPreset: (value: string) => void;
+  backgroundColor: string;
+  setBackgroundColor: (value: string) => void;
+  isGridVisible: boolean;
+  setIsGridVisible: (value: boolean) => void;
+  // Effects
   isGlitchEffectEnabled: boolean;
   setIsGlitchEffectEnabled: (value: boolean) => void;
   isBloomEffectEnabled: boolean;
@@ -134,9 +144,33 @@ const ControlPanel: React.FC<ControlPanelProps> = (props) => {
         ),
         'geometry': (
             <>
-                <h2 style={styles.typography.h2}>Adjust Properties</h2>
+                <h2 style={styles.typography.h2}>Scene & Model</h2>
                 <Slider label="Extrusion Depth" id="extrusion-depth" min={1} max={100} step={1} value={props.extrusion} onChange={props.setExtrusion} />
                 <Slider label="Bevel Smoothness" id="bevel-smoothness" min={0} max={10} step={1} value={props.bevelSegments} onChange={props.setBevelSegments} />
+                <div style={separatorStyle} />
+                <div style={controlGroupStyle}>
+                    <label style={styles.typography.label}>Lighting</label>
+                    <div style={presetGrid3ColStyle}>
+                        <Button variant={props.lightingPreset === 'studio' ? 'primary' : 'secondary'} onClick={() => props.setLightingPreset('studio')}>Studio</Button>
+                        <Button variant={props.lightingPreset === 'dramatic' ? 'primary' : 'secondary'} onClick={() => props.setLightingPreset('dramatic')}>Dramatic</Button>
+                        <Button variant={props.lightingPreset === 'soft' ? 'primary' : 'secondary'} onClick={() => props.setLightingPreset('soft')}>Soft</Button>
+                    </div>
+                </div>
+                <div style={controlGroupStyle}>
+                    <label htmlFor="bg-color" style={styles.typography.label}>Background Color</label>
+                    <div style={colorControlStyle}>
+                        <input id="bg-color" type="color" value={props.backgroundColor} onChange={(e) => props.setBackgroundColor(e.target.value)} style={colorPickerStyle} />
+                        <input type="text" value={props.backgroundColor} onChange={(e) => props.setBackgroundColor(e.target.value)} style={textInputStyle} />
+                    </div>
+                </div>
+                <EffectToggle
+                    id="grid-toggle"
+                    icon={<GridIcon style={{ width: 24, height: 24 }} />}
+                    title="Show Grid"
+                    description="Toggle the floor grid visibility."
+                    isEnabled={props.isGridVisible}
+                    onToggle={props.setIsGridVisible}
+                />
             </>
         ),
         'material': (
@@ -226,7 +260,7 @@ const ControlPanel: React.FC<ControlPanelProps> = (props) => {
                 <TabButton tab="upload" label="Upload Model" icon={<UploadIcon style={{width: 24, height: 24}} />} />
                 {props.hasModel && (
                     <>
-                        <TabButton tab="geometry" label="Geometry Settings" icon={<SettingsIcon style={{width: 24, height: 24}} />} />
+                        <TabButton tab="geometry" label="Scene & Model" icon={<SettingsIcon style={{width: 24, height: 24}} />} />
                         <TabButton tab="material" label="Material Editor" icon={<PaletteIcon style={{width: 24, height: 24}} />} />
                         <TabButton tab="effects" label="Special Effects" icon={<SparklesIcon style={{width: 24, height: 24}} />} />
                     </>
@@ -242,7 +276,7 @@ const ControlPanel: React.FC<ControlPanelProps> = (props) => {
             </div>
             {props.hasModel && (
                 <div style={footerStyle}>
-                    <Button onClick={props.onExport} disabled={props.isLoading} variant="primary">Export to GLTF</Button>
+                    <Button onClick={props.onExport} disabled={props.isLoading} variant="primary">Export to GLB</Button>
                     <Button onClick={props.onClear} disabled={props.isLoading} variant="secondary">Clear Model</Button>
                 </div>
             )}
@@ -320,6 +354,14 @@ const errorTextStyle: React.CSSProperties = {
 
 const controlGroupStyle: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: styles.spacing.xs };
 const presetGridStyle: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: styles.spacing.xs };
+const presetGrid3ColStyle: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: styles.spacing.xs };
+
+const separatorStyle: React.CSSProperties = {
+  height: '1px',
+  background: styles.colors.glassBorder,
+  margin: `${styles.spacing.md} 0`
+};
+
 const colorControlStyle: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: styles.spacing.sm };
 const textInputStyle: React.CSSProperties = {
     flexGrow: 1,

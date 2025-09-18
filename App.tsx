@@ -111,6 +111,11 @@ const App: React.FC = () => {
   const [ior, setIor] = useState<number>(1.5);
   const [thickness, setThickness] = useState<number>(0.5);
 
+  // Scene properties state
+  const [lightingPreset, setLightingPreset] = useState<string>('studio');
+  const [backgroundColor, setBackgroundColor] = useState<string>('#0a0a0a');
+  const [isGridVisible, setIsGridVisible] = useState<boolean>(true);
+
   // Special effects state
   const [isGlitchEffectEnabled, setIsGlitchEffectEnabled] = useState<boolean>(false);
   const [isBloomEffectEnabled, setIsBloomEffectEnabled] = useState<boolean>(false);
@@ -155,6 +160,9 @@ const App: React.FC = () => {
     setThickness(0.5);
     setExtrusion(10);
     setBevelSegments(2);
+    setLightingPreset('studio');
+    setBackgroundColor('#0a0a0a');
+    setIsGridVisible(true);
     setIsGlitchEffectEnabled(false);
     setIsBloomEffectEnabled(false);
     setIsPixelationEffectEnabled(false);
@@ -164,18 +172,21 @@ const App: React.FC = () => {
   }, []);
 
   const handleExport = () => {
-    if (sceneRef.current?.model) {
+    const model = sceneRef.current?.getModel();
+    if (model) {
         const exporter = new GLTFExporter();
         const options = {
-            animations: sceneRef.current.animations || []
+            animations: sceneRef.current?.getAnimations() || [],
+            binary: true, // Export as a binary GLB file
         };
         exporter.parse(
-            sceneRef.current.model,
+            model,
             (gltf) => {
-                const blob = new Blob([JSON.stringify(gltf)], { type: 'application/json' });
+                // The result is an ArrayBuffer for binary GLB
+                const blob = new Blob([gltf as ArrayBuffer], { type: 'application/octet-stream' });
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(blob);
-                link.download = 'model.gltf';
+                link.download = 'model.glb';
                 link.click();
             },
             (error) => {
@@ -213,6 +224,13 @@ const App: React.FC = () => {
         setIor={setIor}
         thickness={thickness}
         setThickness={setThickness}
+        // Scene props
+        lightingPreset={lightingPreset}
+        setLightingPreset={setLightingPreset}
+        backgroundColor={backgroundColor}
+        setBackgroundColor={setBackgroundColor}
+        isGridVisible={isGridVisible}
+        setIsGridVisible={setIsGridVisible}
         // Special Effects
         isGlitchEffectEnabled={isGlitchEffectEnabled}
         setIsGlitchEffectEnabled={setIsGlitchEffectEnabled}
@@ -254,6 +272,9 @@ const App: React.FC = () => {
           transmission={transmission}
           ior={ior}
           thickness={thickness}
+          lightingPreset={lightingPreset}
+          backgroundColor={backgroundColor}
+          isGridVisible={isGridVisible}
           isGlitchEffectEnabled={isGlitchEffectEnabled}
           isBloomEffectEnabled={isBloomEffectEnabled}
           isPixelationEffectEnabled={isPixelationEffectEnabled}

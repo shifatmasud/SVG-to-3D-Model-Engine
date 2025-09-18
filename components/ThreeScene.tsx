@@ -12,12 +12,18 @@ interface ThreeSceneProps {
   svgData: string | null;
   extrusionDepth: number;
   bevelSegments: number;
+  // Material
   color: string;
   roughness: number;
   metalness: number;
   transmission: number;
   ior: number;
   thickness: number;
+  // Scene
+  lightingPreset: string;
+  backgroundColor: string;
+  isGridVisible: boolean;
+  // Effects
   isGlitchEffectEnabled: boolean;
   isBloomEffectEnabled: boolean;
   isPixelationEffectEnabled: boolean;
@@ -26,8 +32,8 @@ interface ThreeSceneProps {
 }
 
 export interface ThreeSceneRef {
-  model: THREE.Group | null;
-  animations: THREE.AnimationClip[];
+  getModel: () => THREE.Group | null;
+  getAnimations: () => THREE.AnimationClip[];
 }
 
 const RGBShiftShader = {
@@ -112,213 +118,163 @@ const ThreeScene = forwardRef<ThreeSceneRef, ThreeSceneProps>(({
   transmission,
   ior,
   thickness,
+  lightingPreset,
+  backgroundColor,
+  isGridVisible,
   isGlitchEffectEnabled,
   isBloomEffectEnabled,
   isPixelationEffectEnabled,
   isChromaticAberrationEnabled,
   isScanLinesEnabled,
 }, ref) => {
-  const mountRef = useRef<HTMLDivElement>(null);
-  const modelRef = useRef<THREE.Group | null>(null);
-  const animationsRef = useRef<THREE.AnimationClip[]>([]);
-  const mixerRef = useRef<THREE.AnimationMixer | null>(null);
-  const originalGeometriesRef = useRef(new Map<string, THREE.BufferGeometry>());
-  
-  const composerRef = useRef<EffectComposer | null>(null);
-  const bloomPassRef = useRef<UnrealBloomPass | null>(null);
-  const rgbShiftPassRef = useRef<ShaderPass | null>(null);
-  const pixelationPassRef = useRef<ShaderPass | null>(null);
-  const scanLinesPassRef = useRef<ShaderPass | null>(null);
+    const mountRef = useRef<HTMLDivElement>(null);
+    
+    // Core object refs
+    const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+    const sceneRef = useRef<THREE.Scene | null>(null);
+    const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+    const controlsRef = useRef<OrbitControls | null>(null);
+    const composerRef = useRef<EffectComposer | null>(null);
+    const clockRef = useRef<THREE.Clock | null>(null);
 
+    // Scene content refs
+    const modelRef = useRef<THREE.Group | null>(null);
+    const lightsRef = useRef<THREE.Group | null>(null);
+    const gridHelperRef = useRef<THREE.GridHelper | null>(null);
 
-  useImperativeHandle(ref, () => ({
-    model: modelRef.current,
-    animations: animationsRef.current,
-  }), []);
-  
-  useEffect(() => {
-    if (modelRef.current) {
-        modelRef.current.traverse((object) => {
-            if (object instanceof THREE.Mesh) {
-                const material = object.material as THREE.MeshPhysicalMaterial;
-                material.color.set(color).convertSRGBToLinear();
-                material.roughness = roughness;
-                material.metalness = metalness;
-                material.transmission = transmission;
-                material.ior = ior;
-                material.thickness = thickness;
-                material.transparent = transmission > 0;
-                material.needsUpdate = true;
+    // Effect pass refs
+    const bloomPassRef = useRef<UnrealBloomPass | null>(null);
+    const rgbShiftPassRef = useRef<ShaderPass | null>(null);
+    const pixelationPassRef = useRef<ShaderPass | null>(null);
+    const scanLinesPassRef = useRef<ShaderPass | null>(null);
+
+    // Animation refs
+    const animationsRef = useRef<THREE.AnimationClip[]>([]);
+    const mixerRef = useRef<THREE.AnimationMixer | null>(null);
+    const originalGeometriesRef = useRef(new Map<string, THREE.BufferGeometry>());
+    
+    // Ref for state inside animation loop
+    const isGlitchEffectEnabledRef = useRef(isGlitchEffectEnabled);
+    useEffect(() => {
+        isGlitchEffectEnabledRef.current = isGlitchEffectEnabled;
+    }, [isGlitchEffectEnabled]);
+
+    useImperativeHandle(ref, () => ({
+        getModel: () => modelRef.current,
+        getAnimations: () => animationsRef.current,
+    }), []);
+
+    // Effect 1: Initialize Scene, Renderer, Composer, and Animation Loop (runs once)
+    useEffect(() => {
+        const currentMount = mountRef.current;
+        if (!currentMount) return;
+
+        clockRef.current = new THREE.Clock();
+
+        const scene = new THREE.Scene();
+        sceneRef.current = scene;
+
+        const camera = new THREE.PerspectiveCamera(75, currentMount.clientWidth / currentMount.clientHeight, 0.1, 1000);
+        camera.position.z = 50;
+        cameraRef.current = camera;
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+        renderer.setSize(currentMount.clientWidth, currentMount.clientHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        rendererRef.current = renderer;
+        currentMount.appendChild(renderer.domElement);
+        
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controlsRef.current = controls;
+        
+        const composer = new EffectComposer(renderer);
+        composerRef.current = composer;
+        composer.addPass(new RenderPass(scene, camera));
+        
+        // Add all passes, keep refs to them
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(currentMount.clientWidth, currentMount.clientHeight), 0.4, 0.1, 0.1);
+        composer.addPass(bloomPass);
+        bloomPassRef.current = bloomPass;
+        
+        const rgbShiftPass = new ShaderPass(RGBShiftShader);
+        composer.addPass(rgbShiftPass);
+        rgbShiftPassRef.current = rgbShiftPass;
+
+        const pixelationPass = new ShaderPass(PixelationShader);
+        pixelationPass.uniforms['resolution'].value.set(currentMount.clientWidth, currentMount.clientHeight);
+        composer.addPass(pixelationPass);
+        pixelationPassRef.current = pixelationPass;
+
+        const scanLinesPass = new ShaderPass(ScanLineShader);
+        composer.addPass(scanLinesPass);
+        scanLinesPassRef.current = scanLinesPass;
+
+        const lights = new THREE.Group();
+        lightsRef.current = lights;
+        scene.add(lights);
+        
+        const gridHelper = new THREE.GridHelper(200, 50, 0x222222, 0x222222);
+        gridHelperRef.current = gridHelper;
+        scene.add(gridHelper);
+        
+        let animationFrameId: number;
+        const animate = () => {
+            animationFrameId = requestAnimationFrame(animate);
+            controls.update();
+            const clock = clockRef.current;
+            if (clock) {
+                const delta = clock.getDelta();
+                if (mixerRef.current) {
+                    mixerRef.current.update(delta);
+                }
+                if (isGlitchEffectEnabledRef.current && rgbShiftPassRef.current) {
+                    const time = clock.getElapsedTime();
+                    rgbShiftPassRef.current.uniforms['amount'].value = Math.sin(time * 20) * 0.003 + 0.003;
+                    rgbShiftPassRef.current.uniforms['angle'].value = Math.sin(time * 5) * Math.PI;
+                }
             }
-        });
-    }
-  }, [color, roughness, metalness, transmission, ior, thickness]);
+            composer.render();
+        };
+        animate();
 
-  useEffect(() => {
-    const model = modelRef.current;
-    if (!model) return;
+        const handleResize = () => {
+            if (mountRef.current) {
+                const width = mountRef.current.clientWidth;
+                const height = mountRef.current.clientHeight;
+                camera.aspect = width / height;
+                camera.updateProjectionMatrix();
+                renderer.setSize(width, height);
+                composer.setSize(width, height);
+                if (pixelationPassRef.current) {
+                    pixelationPassRef.current.uniforms['resolution'].value.set(width, height);
+                }
+            }
+        };
+        window.addEventListener('resize', handleResize);
 
-    const removeGlitch = () => {
-      if (mixerRef.current) {
-        mixerRef.current.stopAllAction();
-        mixerRef.current = null;
-      }
-      animationsRef.current = [];
-      
-      model.traverse((object) => {
-        if (object instanceof THREE.Mesh && originalGeometriesRef.current.has(object.uuid)) {
-          const originalGeo = originalGeometriesRef.current.get(object.uuid);
-          object.geometry.dispose();
-          if(originalGeo) object.geometry = originalGeo;
-          object.morphTargetInfluences = [];
-          object.morphTargetDictionary = {};
-        }
-      });
-      originalGeometriesRef.current.clear();
-      
-      if (rgbShiftPassRef.current && isChromaticAberrationEnabled) {
-        rgbShiftPassRef.current.uniforms['amount'].value = 0.0035;
-        rgbShiftPassRef.current.uniforms['angle'].value = 0.5;
-      }
-    };
+        return () => {
+            cancelAnimationFrame(animationFrameId);
+            window.removeEventListener('resize', handleResize);
+            if(currentMount && renderer.domElement) {
+                currentMount.removeChild(renderer.domElement);
+            }
+            renderer.dispose();
+        };
+    }, []);
 
-    const addGlitch = () => {
-      const meshes: THREE.Mesh[] = [];
-      originalGeometriesRef.current.clear();
+    // Effect 2: Update Model based on SVG data and geometry props
+    useEffect(() => {
+        const scene = sceneRef.current;
+        const camera = cameraRef.current;
+        const controls = controlsRef.current;
+        if (!scene || !camera || !controls) return;
 
-      model.traverse((object) => {
-        if (object instanceof THREE.Mesh) {
-          object.name = object.uuid;
-          originalGeometriesRef.current.set(object.uuid, object.geometry);
-          object.geometry = object.geometry.clone();
-          meshes.push(object);
-        }
-      });
-      if (meshes.length === 0) return;
-
-      const bbox = new THREE.Box3().setFromObject(model);
-      const size = bbox.getSize(new THREE.Vector3());
-      const glitchStrength = Math.max(size.x / 15, 0.2);
-
-      meshes.forEach(mesh => {
-        const basePositions = mesh.geometry.attributes.position.array;
-        const glitchedPositions = new Float32Array(basePositions.length);
-        glitchedPositions.set(basePositions);
-        
-        for (let i = 0; i < basePositions.length; i+=3) {
-            const y = basePositions[i+1];
-            const waveOffset = Math.sin(y * 0.25 + 1.5) * glitchStrength * 0.5;
-            glitchedPositions[i] += waveOffset;
-        }
-        
-        mesh.geometry.morphAttributes.position = [new THREE.Float32BufferAttribute(glitchedPositions, 3)];
-        mesh.updateMorphTargets();
-      });
-
-      const tracks = meshes.map(mesh => {
-        const times =  [0, 0.2, 0.25, 0.3, 0.5, 0.55, 0.8, 0.85, 0.9, 1.1, 1.15, 1.4, 1.45, 1.5, 1.7, 1.75, 2.0];
-        const values = [0, 0,   1.0,  0,   0,   0.8,  0,   1.0,  0.2, 0,   0.7,  0.1, 0.9,  0,   0,   0.6,  0];
-        return new THREE.NumberKeyframeTrack(`${mesh.name}.morphTargetInfluences[0]`, times, values);
-      });
-      
-      const clip = new THREE.AnimationClip('Glitch', 2, tracks);
-      animationsRef.current = [clip];
-      
-      mixerRef.current = new THREE.AnimationMixer(model);
-      const action = mixerRef.current.clipAction(clip);
-      action.setLoop(THREE.LoopRepeat, Infinity).play();
-    };
-
-    if (isGlitchEffectEnabled) {
-      addGlitch();
-    } else {
-      removeGlitch();
-    }
-
-    return () => {
-      removeGlitch();
-    };
-  }, [isGlitchEffectEnabled, modelRef.current, isChromaticAberrationEnabled]);
-
-  useEffect(() => {
-    if (!mountRef.current) return;
-    
-    const currentMount = mountRef.current;
-
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(styles.colors.background); 
-
-    const camera = new THREE.PerspectiveCamera(75, currentMount.clientWidth / currentMount.clientHeight, 0.1, 1000);
-    camera.position.z = 50;
-
-    const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
-    renderer.setSize(currentMount.clientWidth, currentMount.clientHeight);
-    renderer.setPixelRatio(window.devicePixelRatio);
-    currentMount.appendChild(renderer.domElement);
-    
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    
-    const composer = new EffectComposer(renderer);
-    composer.addPass(new RenderPass(scene, camera));
-    
-    // Add all passes, keep refs to them
-    const bloomPass = new UnrealBloomPass(new THREE.Vector2(currentMount.clientWidth, currentMount.clientHeight), 0.4, 0.1, 0.1);
-    composer.addPass(bloomPass);
-    bloomPassRef.current = bloomPass;
-    
-    const rgbShiftPass = new ShaderPass(RGBShiftShader);
-    composer.addPass(rgbShiftPass);
-    rgbShiftPassRef.current = rgbShiftPass;
-
-    const pixelationPass = new ShaderPass(PixelationShader);
-    pixelationPass.uniforms['resolution'].value.set(currentMount.clientWidth, currentMount.clientHeight);
-    composer.addPass(pixelationPass);
-    pixelationPassRef.current = pixelationPass;
-
-    const scanLinesPass = new ShaderPass(ScanLineShader);
-    composer.addPass(scanLinesPass);
-    scanLinesPassRef.current = scanLinesPass;
-
-    composerRef.current = composer;
-
-
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
-    scene.add(ambientLight);
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
-    directionalLight.position.set(50, 50, 50);
-    scene.add(directionalLight);
-    const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.6);
-    directionalLight2.position.set(-50, 50, -50);
-    scene.add(directionalLight2);
-    
-    const gridHelper = new THREE.GridHelper(200, 50, 0x222222, 0x222222);
-    scene.add(gridHelper);
-    
-    const clock = new THREE.Clock();
-    const animate = () => {
-      requestAnimationFrame(animate);
-      controls.update();
-      const delta = clock.getDelta();
-      
-      if (mixerRef.current) {
-        mixerRef.current.update(delta);
-      }
-      
-      if (isGlitchEffectEnabled && rgbShiftPassRef.current) {
-          const time = clock.getElapsedTime();
-          rgbShiftPassRef.current.uniforms['amount'].value = Math.sin(time * 20) * 0.003 + 0.003;
-          rgbShiftPassRef.current.uniforms['angle'].value = Math.sin(time * 5) * Math.PI;
-      }
-
-      composerRef.current?.render();
-    };
-    animate();
-
-    const updateModel = () => {
         if (modelRef.current) {
             scene.remove(modelRef.current);
+            // In a larger app, you'd dispose geometries and materials here
         }
+
         if (svgData) {
             const model = createModelFromSVG(svgData, extrusionDepth, bevelSegments, { color, roughness, metalness, transmission, ior, thickness });
             modelRef.current = model;
@@ -342,67 +298,165 @@ const ThreeScene = forwardRef<ThreeSceneRef, ThreeSceneProps>(({
         } else {
             modelRef.current = null;
         }
-    };
-    
-    updateModel();
+    }, [svgData, extrusionDepth, bevelSegments]);
 
-    const handleResize = () => {
-        if (mountRef.current) {
-            const width = mountRef.current.clientWidth;
-            const height = mountRef.current.clientHeight;
-            renderer.setSize(width, height);
-            composerRef.current?.setSize(width, height);
-            camera.aspect = width / height;
-            camera.updateProjectionMatrix();
+    // Effect 3: Update material properties
+    useEffect(() => {
+        if (modelRef.current) {
+            modelRef.current.traverse((object) => {
+                if (object instanceof THREE.Mesh) {
+                    const material = object.material as THREE.MeshPhysicalMaterial;
+                    material.color.set(color).convertSRGBToLinear();
+                    material.roughness = roughness;
+                    material.metalness = metalness;
+                    material.transmission = transmission;
+                    material.ior = ior;
+                    material.thickness = thickness;
+                    material.transparent = transmission > 0;
+                    material.needsUpdate = true;
+                }
+            });
+        }
+    }, [color, roughness, metalness, transmission, ior, thickness]);
 
-            if (pixelationPassRef.current) {
-              pixelationPassRef.current.uniforms['resolution'].value.set(width, height);
+    // Effect 4: Handle Glitch effect logic (re-runs when model is rebuilt)
+    useEffect(() => {
+        const model = modelRef.current;
+        if (!model) return;
+
+        const removeGlitch = () => {
+            if (mixerRef.current) {
+                mixerRef.current.stopAllAction();
+                mixerRef.current = null;
+            }
+            animationsRef.current = [];
+            
+            model.traverse((object) => {
+                if (object instanceof THREE.Mesh && originalGeometriesRef.current.has(object.uuid)) {
+                    const originalGeo = originalGeometriesRef.current.get(object.uuid);
+                    object.geometry.dispose();
+                    if(originalGeo) object.geometry = originalGeo;
+                    object.morphTargetInfluences = [];
+                    object.morphTargetDictionary = {};
+                }
+            });
+            originalGeometriesRef.current.clear();
+            
+            if (rgbShiftPassRef.current && isChromaticAberrationEnabled) {
+                rgbShiftPassRef.current.uniforms['amount'].value = 0.0035;
+                rgbShiftPassRef.current.uniforms['angle'].value = 0.5;
+            }
+        };
+
+        const addGlitch = () => {
+            const meshes: THREE.Mesh[] = [];
+            originalGeometriesRef.current.clear();
+
+            model.traverse((object) => {
+                if (object instanceof THREE.Mesh) {
+                    object.name = object.uuid;
+                    originalGeometriesRef.current.set(object.uuid, object.geometry);
+                    object.geometry = object.geometry.clone();
+                    meshes.push(object);
+                }
+            });
+            if (meshes.length === 0) return;
+
+            const bbox = new THREE.Box3().setFromObject(model);
+            const size = bbox.getSize(new THREE.Vector3());
+            const glitchStrength = Math.max(size.x / 15, 0.2);
+
+            meshes.forEach(mesh => {
+                const basePositions = mesh.geometry.attributes.position.array;
+                const glitchedPositions = new Float32Array(basePositions.length);
+                glitchedPositions.set(basePositions);
+                
+                for (let i = 0; i < basePositions.length; i+=3) {
+                    const y = basePositions[i+1];
+                    const waveOffset = Math.sin(y * 0.25 + 1.5) * glitchStrength * 0.5;
+                    glitchedPositions[i] += waveOffset;
+                }
+                
+                mesh.geometry.morphAttributes.position = [new THREE.Float32BufferAttribute(glitchedPositions, 3)];
+                mesh.updateMorphTargets();
+            });
+
+            const tracks = meshes.map(mesh => {
+                const times =  [0, 0.2, 0.25, 0.3, 0.5, 0.55, 0.8, 0.85, 0.9, 1.1, 1.15, 1.4, 1.45, 1.5, 1.7, 1.75, 2.0];
+                const values = [0, 0,   1.0,  0,   0,   0.8,  0,   1.0,  0.2, 0,   0.7,  0.1, 0.9,  0,   0,   0.6,  0];
+                return new THREE.NumberKeyframeTrack(`${mesh.name}.morphTargetInfluences[0]`, times, values);
+            });
+            
+            const clip = new THREE.AnimationClip('Glitch', 2, tracks);
+            animationsRef.current = [clip];
+            
+            mixerRef.current = new THREE.AnimationMixer(model);
+            const action = mixerRef.current.clipAction(clip);
+            action.setLoop(THREE.LoopRepeat, Infinity).play();
+        };
+
+        if (isGlitchEffectEnabled) {
+            addGlitch();
+        } else {
+            removeGlitch();
+        }
+
+        return () => removeGlitch();
+    }, [isGlitchEffectEnabled, isChromaticAberrationEnabled, svgData, extrusionDepth, bevelSegments]);
+
+    // Effects for toggling individual passes
+    useEffect(() => { if (bloomPassRef.current) bloomPassRef.current.enabled = isBloomEffectEnabled; }, [isBloomEffectEnabled]);
+    useEffect(() => { if (pixelationPassRef.current) pixelationPassRef.current.enabled = isPixelationEffectEnabled; }, [isPixelationEffectEnabled]);
+    useEffect(() => { if (scanLinesPassRef.current) scanLinesPassRef.current.enabled = isScanLinesEnabled; }, [isScanLinesEnabled]);
+
+    useEffect(() => {
+        if (rgbShiftPassRef.current) {
+            const shouldBeEnabled = isGlitchEffectEnabled || isChromaticAberrationEnabled;
+            rgbShiftPassRef.current.enabled = shouldBeEnabled;
+            if (isChromaticAberrationEnabled && !isGlitchEffectEnabled) {
+                rgbShiftPassRef.current.uniforms['amount'].value = 0.0035;
+                rgbShiftPassRef.current.uniforms['angle'].value = 0.5;
             }
         }
-    };
-    window.addEventListener('resize', handleResize);
+    }, [isChromaticAberrationEnabled, isGlitchEffectEnabled]);
 
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      if(currentMount && renderer.domElement) {
-        currentMount.removeChild(renderer.domElement);
-      }
-      renderer.dispose();
-    };
-  }, [svgData, extrusionDepth, bevelSegments]);
-  
-  // Hooks to toggle individual effect passes
-  useEffect(() => {
-    if (bloomPassRef.current) {
-        bloomPassRef.current.enabled = isBloomEffectEnabled;
-    }
-  }, [isBloomEffectEnabled]);
+    // Effects for scene settings
+    useEffect(() => {
+        const lights = lightsRef.current;
+        if (!lights) return;
 
-  useEffect(() => {
-    if (rgbShiftPassRef.current) {
-        const shouldBeEnabled = isGlitchEffectEnabled || isChromaticAberrationEnabled;
-        rgbShiftPassRef.current.enabled = shouldBeEnabled;
-
-        if (isChromaticAberrationEnabled && !isGlitchEffectEnabled) {
-            rgbShiftPassRef.current.uniforms['amount'].value = 0.0035;
-            rgbShiftPassRef.current.uniforms['angle'].value = 0.5;
+        while (lights.children.length > 0) {
+            lights.remove(lights.children[0]);
         }
-    }
-  }, [isChromaticAberrationEnabled, isGlitchEffectEnabled]);
 
-  useEffect(() => {
-    if (pixelationPassRef.current) {
-        pixelationPassRef.current.enabled = isPixelationEffectEnabled;
-    }
-  }, [isPixelationEffectEnabled]);
+        if (lightingPreset === 'studio') {
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
+            directionalLight.position.set(50, 50, 50);
+            const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.6);
+            directionalLight2.position.set(-50, 50, -50);
+            lights.add(ambientLight, directionalLight, directionalLight2);
+        } else if (lightingPreset === 'dramatic') {
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
+            const keyLight = new THREE.SpotLight(0xffffff, 2.5, 300, Math.PI / 4, 0.5);
+            keyLight.position.set(60, 80, 40);
+            const fillLight = new THREE.DirectionalLight(0x8888ff, 0.4);
+            fillLight.position.set(-50, 30, 20);
+            const rimLight = new THREE.DirectionalLight(0xffffff, 1.2);
+            rimLight.position.set(-30, 40, -80);
+            lights.add(ambientLight, keyLight, fillLight, rimLight);
+        } else if (lightingPreset === 'soft') {
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+            const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.9);
+            hemisphereLight.position.set(0, 100, 0);
+            lights.add(ambientLight, hemisphereLight);
+        }
+    }, [lightingPreset]);
 
-  useEffect(() => {
-    if (scanLinesPassRef.current) {
-        scanLinesPassRef.current.enabled = isScanLinesEnabled;
-    }
-  }, [isScanLinesEnabled]);
+    useEffect(() => { if (sceneRef.current) sceneRef.current.background = new THREE.Color(backgroundColor); }, [backgroundColor]);
+    useEffect(() => { if (gridHelperRef.current) gridHelperRef.current.visible = isGridVisible; }, [isGridVisible]);
 
-  return <div ref={mountRef} style={{ width: '100%', height: '100%' }} />;
+    return <div ref={mountRef} style={{ width: '100%', height: '100%' }} />;
 });
 
 export default ThreeScene;
