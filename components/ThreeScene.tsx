@@ -6,6 +6,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { createModelFromSVG } from '../services/svgTo3D';
+import * as styles from '../styles';
 
 interface ThreeSceneProps {
   svgData: string | null;
@@ -18,6 +19,10 @@ interface ThreeSceneProps {
   ior: number;
   thickness: number;
   isGlitchEffectEnabled: boolean;
+  isBloomEffectEnabled: boolean;
+  isPixelationEffectEnabled: boolean;
+  isChromaticAberrationEnabled: boolean;
+  isScanLinesEnabled: boolean;
 }
 
 export interface ThreeSceneRef {
@@ -31,13 +36,13 @@ const RGBShiftShader = {
     'amount': { value: 0.005 },
     'angle': { value: 0.0 },
   },
-  vertexShader: /* glsl */`
+  vertexShader: `
     varying vec2 vUv;
     void main() {
       vUv = uv;
       gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
     }`,
-  fragmentShader: /* glsl */`
+  fragmentShader: `
     uniform sampler2D tDiffuse;
     uniform float amount;
     uniform float angle;
@@ -51,6 +56,52 @@ const RGBShiftShader = {
     }`
 };
 
+const PixelationShader = {
+    uniforms: {
+        'tDiffuse': { value: null },
+        'pixelSize': { value: 8.0 },
+        'resolution': { value: new THREE.Vector2() },
+    },
+    vertexShader: `
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+        }`,
+    fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform float pixelSize;
+        uniform vec2 resolution;
+        varying vec2 vUv;
+        void main() {
+            vec2 newUv = floor(vUv * resolution / pixelSize) * pixelSize / resolution;
+            gl_FragColor = texture2D(tDiffuse, newUv);
+        }`
+};
+
+const ScanLineShader = {
+    uniforms: {
+        'tDiffuse': { value: null },
+    },
+    vertexShader: `
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+        }`,
+    fragmentShader: `
+        uniform sampler2D tDiffuse;
+        varying vec2 vUv;
+        void main() {
+            vec4 originalColor = texture2D(tDiffuse, vUv);
+            float lineFactor = 400.0;
+            float intensity = sin(vUv.y * lineFactor);
+            vec3 scanLineColor = originalColor.rgb * (1.0 - 0.15 * pow(intensity, 2.0));
+            gl_FragColor = vec4(scanLineColor, originalColor.a);
+        }`
+};
+
+
 const ThreeScene = forwardRef<ThreeSceneRef, ThreeSceneProps>(({ 
   svgData, 
   extrusionDepth, 
@@ -62,6 +113,10 @@ const ThreeScene = forwardRef<ThreeSceneRef, ThreeSceneProps>(({
   ior,
   thickness,
   isGlitchEffectEnabled,
+  isBloomEffectEnabled,
+  isPixelationEffectEnabled,
+  isChromaticAberrationEnabled,
+  isScanLinesEnabled,
 }, ref) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const modelRef = useRef<THREE.Group | null>(null);
@@ -69,10 +124,11 @@ const ThreeScene = forwardRef<ThreeSceneRef, ThreeSceneProps>(({
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
   const originalGeometriesRef = useRef(new Map<string, THREE.BufferGeometry>());
   
-  // Refs for post-processing
   const composerRef = useRef<EffectComposer | null>(null);
   const bloomPassRef = useRef<UnrealBloomPass | null>(null);
   const rgbShiftPassRef = useRef<ShaderPass | null>(null);
+  const pixelationPassRef = useRef<ShaderPass | null>(null);
+  const scanLinesPassRef = useRef<ShaderPass | null>(null);
 
 
   useImperativeHandle(ref, () => ({
@@ -80,7 +136,6 @@ const ThreeScene = forwardRef<ThreeSceneRef, ThreeSceneProps>(({
     animations: animationsRef.current,
   }), []);
   
-  // Effect for updating material properties
   useEffect(() => {
     if (modelRef.current) {
         modelRef.current.traverse((object) => {
@@ -99,20 +154,17 @@ const ThreeScene = forwardRef<ThreeSceneRef, ThreeSceneProps>(({
     }
   }, [color, roughness, metalness, transmission, ior, thickness]);
 
-  // Effect for managing glitch animation and post-processing
   useEffect(() => {
     const model = modelRef.current;
     if (!model) return;
 
     const removeGlitch = () => {
-      // Stop animation
       if (mixerRef.current) {
         mixerRef.current.stopAllAction();
         mixerRef.current = null;
       }
       animationsRef.current = [];
       
-      // Restore original geometry
       model.traverse((object) => {
         if (object instanceof THREE.Mesh && originalGeometriesRef.current.has(object.uuid)) {
           const originalGeo = originalGeometriesRef.current.get(object.uuid);
@@ -124,9 +176,10 @@ const ThreeScene = forwardRef<ThreeSceneRef, ThreeSceneProps>(({
       });
       originalGeometriesRef.current.clear();
       
-      // Disable post-processing effects
-      if(bloomPassRef.current) bloomPassRef.current.enabled = false;
-      if(rgbShiftPassRef.current) rgbShiftPassRef.current.enabled = false;
+      if (rgbShiftPassRef.current && isChromaticAberrationEnabled) {
+        rgbShiftPassRef.current.uniforms['amount'].value = 0.0035;
+        rgbShiftPassRef.current.uniforms['angle'].value = 0.5;
+      }
     };
 
     const addGlitch = () => {
@@ -150,52 +203,8 @@ const ThreeScene = forwardRef<ThreeSceneRef, ThreeSceneProps>(({
       meshes.forEach(mesh => {
         const basePositions = mesh.geometry.attributes.position.array;
         const glitchedPositions = new Float32Array(basePositions.length);
-        glitchedPositions.set(basePositions); // Start with a copy
-
-        // Effect 1: Horizontal Slice Jitter
-        for (let i = 0; i < basePositions.length; i += 3) {
-            if (Math.random() > 0.9) {
-                const y = basePositions[i + 1];
-                const sliceOffset = (Math.random() - 0.5) * glitchStrength * Math.sin(y * 0.1);
-                glitchedPositions[i] += sliceOffset;
-            }
-        }
-
-        // Effect 2: Fine-grained Per-vertex Noise
-        for (let i = 0; i < basePositions.length; i += 3) {
-            if (Math.random() > 0.98) {
-                 const x = basePositions[i];
-                 const y = basePositions[i + 1];
-                 const hash = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
-                 glitchedPositions[i] += ((hash - Math.floor(hash)) * 2.0 - 1.0) * glitchStrength * 0.3;
-                 glitchedPositions[i + 1] += (Math.sin(hash) * 2.0 - 1.0) * glitchStrength * 0.3;
-            }
-        }
+        glitchedPositions.set(basePositions);
         
-        // Effect 3: Blocky Data Corruption
-        if (Math.random() > 0.7) { // 30% chance of a block glitch per mesh
-            const blockCenter = new THREE.Vector3(
-                (Math.random() - 0.5) * size.x,
-                (Math.random() - 0.5) * size.y,
-                (Math.random() - 0.5) * size.z,
-            );
-            const blockRadius = Math.random() * size.length() * 0.1;
-            const blockOffset = new THREE.Vector3(
-                (Math.random() - 0.5) * glitchStrength * 2,
-                (Math.random() - 0.5) * glitchStrength,
-                0
-            );
-            for (let i = 0; i < basePositions.length; i+=3) {
-                const pos = new THREE.Vector3(basePositions[i], basePositions[i+1], basePositions[i+2]);
-                if (pos.distanceTo(blockCenter) < blockRadius) {
-                    glitchedPositions[i] += blockOffset.x;
-                    glitchedPositions[i+1] += blockOffset.y;
-                    glitchedPositions[i+2] += blockOffset.z;
-                }
-            }
-        }
-
-        // Effect 4: Wave Distortion
         for (let i = 0; i < basePositions.length; i+=3) {
             const y = basePositions[i+1];
             const waveOffset = Math.sin(y * 0.25 + 1.5) * glitchStrength * 0.5;
@@ -218,10 +227,6 @@ const ThreeScene = forwardRef<ThreeSceneRef, ThreeSceneProps>(({
       mixerRef.current = new THREE.AnimationMixer(model);
       const action = mixerRef.current.clipAction(clip);
       action.setLoop(THREE.LoopRepeat, Infinity).play();
-      
-      // Enable post-processing effects
-      if(bloomPassRef.current) bloomPassRef.current.enabled = true;
-      if(rgbShiftPassRef.current) rgbShiftPassRef.current.enabled = true;
     };
 
     if (isGlitchEffectEnabled) {
@@ -233,7 +238,7 @@ const ThreeScene = forwardRef<ThreeSceneRef, ThreeSceneProps>(({
     return () => {
       removeGlitch();
     };
-  }, [isGlitchEffectEnabled, modelRef.current]);
+  }, [isGlitchEffectEnabled, modelRef.current, isChromaticAberrationEnabled]);
 
   useEffect(() => {
     if (!mountRef.current) return;
@@ -241,7 +246,7 @@ const ThreeScene = forwardRef<ThreeSceneRef, ThreeSceneProps>(({
     const currentMount = mountRef.current;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x171717); 
+    scene.background = new THREE.Color(styles.colors.background); 
 
     const camera = new THREE.PerspectiveCamera(75, currentMount.clientWidth / currentMount.clientHeight, 0.1, 1000);
     camera.position.z = 50;
@@ -254,19 +259,26 @@ const ThreeScene = forwardRef<ThreeSceneRef, ThreeSceneProps>(({
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     
-    // Setup Post-processing
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
-
+    
+    // Add all passes, keep refs to them
     const bloomPass = new UnrealBloomPass(new THREE.Vector2(currentMount.clientWidth, currentMount.clientHeight), 0.4, 0.1, 0.1);
-    bloomPass.enabled = false;
     composer.addPass(bloomPass);
     bloomPassRef.current = bloomPass;
     
     const rgbShiftPass = new ShaderPass(RGBShiftShader);
-    rgbShiftPass.enabled = false;
     composer.addPass(rgbShiftPass);
     rgbShiftPassRef.current = rgbShiftPass;
+
+    const pixelationPass = new ShaderPass(PixelationShader);
+    pixelationPass.uniforms['resolution'].value.set(currentMount.clientWidth, currentMount.clientHeight);
+    composer.addPass(pixelationPass);
+    pixelationPassRef.current = pixelationPass;
+
+    const scanLinesPass = new ShaderPass(ScanLineShader);
+    composer.addPass(scanLinesPass);
+    scanLinesPassRef.current = scanLinesPass;
 
     composerRef.current = composer;
 
@@ -280,7 +292,7 @@ const ThreeScene = forwardRef<ThreeSceneRef, ThreeSceneProps>(({
     directionalLight2.position.set(-50, 50, -50);
     scene.add(directionalLight2);
     
-    const gridHelper = new THREE.GridHelper(200, 50, 0x404040, 0x404040);
+    const gridHelper = new THREE.GridHelper(200, 50, 0x222222, 0x222222);
     scene.add(gridHelper);
     
     const clock = new THREE.Clock();
@@ -293,7 +305,6 @@ const ThreeScene = forwardRef<ThreeSceneRef, ThreeSceneProps>(({
         mixerRef.current.update(delta);
       }
       
-      // Animate post-processing effects if they are enabled
       if (isGlitchEffectEnabled && rgbShiftPassRef.current) {
           const time = clock.getElapsedTime();
           rgbShiftPassRef.current.uniforms['amount'].value = Math.sin(time * 20) * 0.003 + 0.003;
@@ -343,6 +354,10 @@ const ThreeScene = forwardRef<ThreeSceneRef, ThreeSceneProps>(({
             composerRef.current?.setSize(width, height);
             camera.aspect = width / height;
             camera.updateProjectionMatrix();
+
+            if (pixelationPassRef.current) {
+              pixelationPassRef.current.uniforms['resolution'].value.set(width, height);
+            }
         }
     };
     window.addEventListener('resize', handleResize);
@@ -355,8 +370,39 @@ const ThreeScene = forwardRef<ThreeSceneRef, ThreeSceneProps>(({
       renderer.dispose();
     };
   }, [svgData, extrusionDepth, bevelSegments]);
+  
+  // Hooks to toggle individual effect passes
+  useEffect(() => {
+    if (bloomPassRef.current) {
+        bloomPassRef.current.enabled = isBloomEffectEnabled;
+    }
+  }, [isBloomEffectEnabled]);
 
-  return <div ref={mountRef} className="scene-view" />;
+  useEffect(() => {
+    if (rgbShiftPassRef.current) {
+        const shouldBeEnabled = isGlitchEffectEnabled || isChromaticAberrationEnabled;
+        rgbShiftPassRef.current.enabled = shouldBeEnabled;
+
+        if (isChromaticAberrationEnabled && !isGlitchEffectEnabled) {
+            rgbShiftPassRef.current.uniforms['amount'].value = 0.0035;
+            rgbShiftPassRef.current.uniforms['angle'].value = 0.5;
+        }
+    }
+  }, [isChromaticAberrationEnabled, isGlitchEffectEnabled]);
+
+  useEffect(() => {
+    if (pixelationPassRef.current) {
+        pixelationPassRef.current.enabled = isPixelationEffectEnabled;
+    }
+  }, [isPixelationEffectEnabled]);
+
+  useEffect(() => {
+    if (scanLinesPassRef.current) {
+        scanLinesPassRef.current.enabled = isScanLinesEnabled;
+    }
+  }, [isScanLinesEnabled]);
+
+  return <div ref={mountRef} style={{ width: '100%', height: '100%' }} />;
 });
 
 export default ThreeScene;

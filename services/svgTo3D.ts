@@ -27,20 +27,18 @@ export const createModelFromSVG = (svgString: string, extrusionDepth: number, be
   data.paths.forEach((path) => {
     const fillColor = path.userData?.style?.fill;
     
-    // Use provided material props, but fall back to SVG fill color if it exists
     const initialColor = (fillColor && fillColor !== 'none') ? fillColor : materialProps.color;
 
-    // FIX: Use MeshPhysicalMaterial to support transmission, ior, and thickness for glass effects.
     const material = new THREE.MeshPhysicalMaterial({
-        color: new THREE.Color(initialColor).convertSRGBToLinear(),
+        color: new THREE.Color(initialColor),
         roughness: materialProps.roughness,
         metalness: materialProps.metalness,
         side: THREE.DoubleSide,
-        // Glass properties
         transmission: materialProps.transmission,
         ior: materialProps.ior,
         thickness: materialProps.thickness,
     });
+    material.color.convertSRGBToLinear();
 
     if (path.userData?.style?.fill !== 'none' && path.userData?.style?.fill !== undefined) {
       const shapes = SVGLoader.createShapes(path);
@@ -51,16 +49,10 @@ export const createModelFromSVG = (svgString: string, extrusionDepth: number, be
         group.add(mesh);
       });
     }
-    
-    // Strokes can be complex and often don't extrude well. 
-    // Focusing on filled shapes provides a more robust result for this tool.
-    // If stroke support is needed, a different approach like TubeGeometry might be better.
   });
   
-  // The SVG loader parses coordinates with Y pointing down, we need to flip it for 3D
   group.scale.y *= -1;
 
-  // Center the model
   const box = new THREE.Box3().setFromObject(group);
   const center = box.getCenter(new THREE.Vector3());
   group.position.sub(center);

@@ -1,11 +1,99 @@
 import React, { useState, useCallback, useRef } from 'react';
-import Header from './components/Header';
 import ControlPanel from './components/ControlPanel';
 import ThreeScene, { ThreeSceneRef } from './components/ThreeScene';
 import Loader from './components/Loader';
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
-import * as THREE from 'three';
+import * as styles from './styles';
+import VectorPenIcon from './components/icons/VectorPenIcon';
 
+const GlobalStyles = () => (
+  <style>{`
+    :root {
+      --color-accent: ${styles.colors.accent};
+      --color-surface: ${styles.colors.surface};
+      --color-background: ${styles.colors.background};
+    }
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      font-family: ${styles.typography.fontFamily};
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      background-color: ${styles.colors.background};
+      color: ${styles.colors.textPrimary};
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 800 800' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+      background-size: cover;
+      opacity: 0.98;
+    }
+    #root {
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+    }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border-width: 0;
+    }
+    /* --- Custom Scrollbar --- */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 8px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background-color: rgba(255, 255, 255, 0.15);
+      border-radius: ${styles.radii.full};
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background-color: rgba(255, 255, 255, 0.25);
+    }
+    /* --- Custom Range Slider --- */
+    input[type=range] {
+      -webkit-appearance: none; appearance: none;
+      background: transparent; cursor: pointer; width: 100%;
+    }
+    input[type=range]:focus { outline: none; }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none;
+      margin-top: -6px;
+      background-color: ${styles.colors.accent};
+      height: 20px; width: 20px;
+      border-radius: ${styles.radii.full};
+      border: 3px solid ${styles.colors.background};
+      box-shadow: 0 0 0 2px ${styles.colors.surface}, 0 0 8px ${styles.colors.accentGlow};
+      transition: transform 150ms ease;
+    }
+    input[type=range]::-moz-range-thumb {
+      background-color: ${styles.colors.accent};
+      height: 14px; width: 14px; /* Adjusted for consistency */
+      border-radius: ${styles.radii.full};
+      border: 3px solid ${styles.colors.background};
+      box-shadow: 0 0 0 2px ${styles.colors.surface}, 0 0 8px ${styles.colors.accentGlow};
+      transition: transform 150ms ease;
+    }
+    input[type=range]:active::-webkit-slider-thumb { transform: scale(1.15); }
+    input[type=range]:active::-moz-range-thumb { transform: scale(1.15); }
+
+    input[type=range]::-webkit-slider-runnable-track {
+      background: linear-gradient(to right, ${styles.colors.accent}, ${styles.colors.accent} var(--value-percent, 0%), rgba(255,255,255,0.1) var(--value-percent, 0%), rgba(255,255,255,0.1));
+      border-radius: ${styles.radii.md}; height: 8px;
+    }
+    input[type=range]::-moz-range-track {
+      background: linear-gradient(to right, ${styles.colors.accent}, ${styles.colors.accent} var(--value-percent, 0%), rgba(255,255,255,0.1) var(--value-percent, 0%), rgba(255,255,255,0.1));
+      border-radius: ${styles.radii.md}; height: 8px;
+    }
+  `}</style>
+);
 
 const App: React.FC = () => {
   const [svgData, setSvgData] = useState<string | null>(null);
@@ -25,6 +113,11 @@ const App: React.FC = () => {
 
   // Special effects state
   const [isGlitchEffectEnabled, setIsGlitchEffectEnabled] = useState<boolean>(false);
+  const [isBloomEffectEnabled, setIsBloomEffectEnabled] = useState<boolean>(false);
+  const [isPixelationEffectEnabled, setIsPixelationEffectEnabled] = useState<boolean>(false);
+  const [isChromaticAberrationEnabled, setIsChromaticAberrationEnabled] = useState<boolean>(false);
+  const [isScanLinesEnabled, setIsScanLinesEnabled] = useState<boolean>(false);
+
 
   const sceneRef = useRef<ThreeSceneRef>(null);
 
@@ -63,6 +156,10 @@ const App: React.FC = () => {
     setExtrusion(10);
     setBevelSegments(2);
     setIsGlitchEffectEnabled(false);
+    setIsBloomEffectEnabled(false);
+    setIsPixelationEffectEnabled(false);
+    setIsChromaticAberrationEnabled(false);
+    setIsScanLinesEnabled(false);
     setKey(prevKey => prevKey + 1);
   }, []);
 
@@ -91,75 +188,130 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="app-container">
-      <Header />
-      <div className="main-layout">
-        <ControlPanel
-          onFileLoad={handleFileLoad}
-          onClear={handleClear}
-          extrusion={extrusion}
-          setExtrusion={setExtrusion}
+    <div style={appContainerStyle}>
+      <GlobalStyles />
+      <ControlPanel
+        onFileLoad={handleFileLoad}
+        onClear={handleClear}
+        extrusion={extrusion}
+        setExtrusion={setExtrusion}
+        bevelSegments={bevelSegments}
+        setBevelSegments={setBevelSegments}
+        isLoading={isLoading}
+        hasModel={!!svgData}
+        error={error}
+        // Material props
+        color={color}
+        setColor={setColor}
+        roughness={roughness}
+        setRoughness={setRoughness}
+        metalness={metalness}
+        setMetalness={setMetalness}
+        transmission={transmission}
+        setTransmission={setTransmission}
+        ior={ior}
+        setIor={setIor}
+        thickness={thickness}
+        setThickness={setThickness}
+        // Special Effects
+        isGlitchEffectEnabled={isGlitchEffectEnabled}
+        setIsGlitchEffectEnabled={setIsGlitchEffectEnabled}
+        isBloomEffectEnabled={isBloomEffectEnabled}
+        setIsBloomEffectEnabled={setIsBloomEffectEnabled}
+        isPixelationEffectEnabled={isPixelationEffectEnabled}
+        setIsPixelationEffectEnabled={setIsPixelationEffectEnabled}
+        isChromaticAberrationEnabled={isChromaticAberrationEnabled}
+        setIsChromaticAberrationEnabled={setIsChromaticAberrationEnabled}
+        isScanLinesEnabled={isScanLinesEnabled}
+        setIsScanLinesEnabled={setIsScanLinesEnabled}
+        // Export prop
+        onExport={handleExport}
+      />
+      <main style={sceneContainerStyle}>
+        {isLoading && (
+            <div style={loaderOverlayStyle}>
+            <Loader />
+          </div>
+        )}
+        {!svgData && !isLoading && (
+          <div style={emptyStateStyle}>
+              <div style={emptyStateContentStyle}>
+                  <VectorPenIcon style={emptyStateIconStyle} />
+                  <h2 style={{...styles.typography.h1, color: styles.colors.textPrimary, marginTop: styles.spacing.lg}}>3D Vector Engine</h2>
+                  <p style={{...styles.typography.body, color: styles.colors.textSecondary, marginTop: styles.spacing.xs}}>Upload an SVG file to begin</p>
+              </div>
+          </div>
+        )}
+        <ThreeScene 
+          key={key} 
+          ref={sceneRef}
+          svgData={svgData} 
+          extrusionDepth={extrusion} 
           bevelSegments={bevelSegments}
-          setBevelSegments={setBevelSegments}
-          isLoading={isLoading}
-          hasModel={!!svgData}
-          error={error}
-          // Material props
           color={color}
-          setColor={setColor}
           roughness={roughness}
-          setRoughness={setRoughness}
           metalness={metalness}
-          setMetalness={setMetalness}
           transmission={transmission}
-          setTransmission={setTransmission}
           ior={ior}
-          setIor={setIor}
           thickness={thickness}
-          setThickness={setThickness}
-          // Special Effects
           isGlitchEffectEnabled={isGlitchEffectEnabled}
-          setIsGlitchEffectEnabled={setIsGlitchEffectEnabled}
-          // Export prop
-          onExport={handleExport}
+          isBloomEffectEnabled={isBloomEffectEnabled}
+          isPixelationEffectEnabled={isPixelationEffectEnabled}
+          isChromaticAberrationEnabled={isChromaticAberrationEnabled}
+          isScanLinesEnabled={isScanLinesEnabled}
         />
-        <main className="scene-container">
-          {isLoading && (
-             <div className="loader-overlay">
-              <Loader />
-            </div>
-          )}
-          {!svgData && !isLoading && (
-            <div className="empty-state">
-                <div className="empty-state__content">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="empty-state__icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M20 7L8.3 14.053M20 7l-4.57 11.253L8.3 14.053M20 7L11.7 4 8.3 14.053" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 17.253L8.3 14.053 11.7 4 4 17.253z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 17.253L15.43 21 11.7 4" />
-                    </svg>
-                    <h2 className="empty-state__title">SVG to 3D Engine</h2>
-                    <p className="empty-state__subtitle">Upload an SVG file to begin</p>
-                </div>
-            </div>
-          )}
-          <ThreeScene 
-            key={key} 
-            ref={sceneRef}
-            svgData={svgData} 
-            extrusionDepth={extrusion} 
-            bevelSegments={bevelSegments}
-            color={color}
-            roughness={roughness}
-            metalness={metalness}
-            transmission={transmission}
-            ior={ior}
-            thickness={thickness}
-            isGlitchEffectEnabled={isGlitchEffectEnabled}
-          />
-        </main>
-      </div>
+      </main>
     </div>
   );
 };
+
+const appContainerStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'row',
+  height: '100%',
+  overflow: 'hidden',
+  position: 'relative',
+};
+
+const sceneContainerStyle: React.CSSProperties = {
+  flexGrow: 1,
+  position: 'relative',
+  backgroundColor: styles.colors.background,
+};
+
+const loaderOverlayStyle: React.CSSProperties = {
+    position: 'absolute',
+    inset: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(5, 5, 5, 0.8)',
+    backdropFilter: 'blur(4px)',
+    zIndex: 20,
+};
+
+const emptyStateStyle: React.CSSProperties = {
+    position: 'absolute',
+    inset: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+    pointerEvents: 'none',
+    animation: 'fadeIn 0.5s ease-out both',
+};
+
+const emptyStateContentStyle: React.CSSProperties = {
+    textAlign: 'center',
+    color: styles.colors.textSecondary,
+};
+
+const emptyStateIconStyle: React.CSSProperties = {
+    margin: '0 auto',
+    height: '80px',
+    width: '80px',
+    color: '#3f3f46',
+};
+
 
 export default App;

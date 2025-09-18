@@ -1,15 +1,51 @@
 import React from 'react';
+import * as styles from '../styles';
+import CubeIcon from './icons/CubeIcon';
 
 const Loader: React.FC = () => {
   return (
-    <div className="loader">
-        <svg className="loader__spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle style={{opacity: 0.25}} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path style={{opacity: 0.75}} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <p className="loader__text">Generating 3D Model...</p>
-    </div>
+    <>
+      <style>{`
+        @keyframes pulse-glow {
+          0%, 100% {
+            opacity: 1;
+            transform: scale(1);
+            filter: drop-shadow(0 0 4px ${styles.colors.accentGlow});
+          }
+          50% {
+            opacity: 0.7;
+            transform: scale(0.95);
+            filter: drop-shadow(0 0 12px ${styles.colors.accentGlow});
+          }
+        }
+      `}</style>
+      <div style={loaderStyle}>
+        <CubeIcon style={spinnerStyle} />
+        <p style={textStyle}>Generating 3D Model...</p>
+      </div>
+    </>
   );
+};
+
+const loaderStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: styles.spacing.lg,
+};
+
+const spinnerStyle: React.CSSProperties = {
+  height: '64px',
+  width: '64px',
+  color: styles.colors.accent,
+  animation: 'pulse-glow 2s ease-in-out infinite',
+};
+
+const textStyle: React.CSSProperties = {
+  ...styles.typography.h2,
+  fontWeight: 400,
+  color: styles.colors.textPrimary,
 };
 
 export default Loader;

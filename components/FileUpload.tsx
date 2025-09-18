@@ -1,4 +1,6 @@
 import React, { useCallback, useState } from 'react';
+import UploadIcon from './icons/UploadIcon';
+import * as styles from '../styles';
 
 interface FileUploadProps {
   onFileLoad: (svgContent: string) => void;
@@ -56,8 +58,28 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileLoad, disabled }) => {
       handleFile(e.target.files[0]);
     }
   };
+  
+  const baseStyle: React.CSSProperties = {
+    display: 'flex', justifyContent: 'center', alignItems: 'center',
+    padding: `${styles.spacing.lg}`,
+    border: `2px dashed ${styles.colors.glassBorder}`,
+    borderRadius: styles.radii.lg,
+    transition: styles.transitions.medium,
+    opacity: disabled ? 0.5 : 1,
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    minHeight: '180px'
+  };
 
-  const containerClasses = `file-upload ${isDragging ? 'is-dragging' : ''} ${disabled ? 'is-disabled' : ''}`;
+  const draggingStyle: React.CSSProperties = {
+    borderColor: styles.colors.accent,
+    borderStyle: 'solid',
+    backgroundColor: 'rgba(0, 153, 255, 0.1)',
+    boxShadow: `0 0 24px ${styles.colors.accentGlow}`,
+    transform: 'scale(1.02)'
+  };
+
+  const finalStyle = isDragging ? { ...baseStyle, ...draggingStyle } : baseStyle;
 
   return (
     <div
@@ -65,34 +87,19 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileLoad, disabled }) => {
       onDragOver={handleDragOver}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
-      className={containerClasses}
+      style={finalStyle}
+      onClick={() => document.getElementById('file-upload')?.click()}
     >
-      <div className="file-upload__inner">
-        <svg
-          className="file-upload__icon"
-          stroke="currentColor"
-          fill="none"
-          viewBox="0 0 48 48"
-          aria-hidden="true"
-        >
-          <path
-            d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-        <div className="file-upload__text">
-          <label
-            htmlFor="file-upload"
-            className="file-upload__label"
-          >
-            <span>Upload a file</span>
+      <div style={{ textAlign: 'center', pointerEvents: 'none' }}>
+        <UploadIcon style={{ margin: '0 auto', height: '48px', width: '48px', color: styles.colors.textPlaceholder }} />
+        <div style={{ ...styles.typography.body, color: styles.colors.textSecondary, marginTop: styles.spacing.sm }}>
+          <span style={{ cursor: 'pointer', fontWeight: 500, color: styles.colors.accent }}>
+            Upload a file
             <input id="file-upload" name="file-upload" type="file" className="sr-only" accept=".svg" onChange={handleChange} disabled={disabled} />
-          </label>
-          <p>or drag and drop</p>
+          </span>
+          <p style={{ margin: 0 }}>or drag and drop</p>
         </div>
-        <p style={{fontSize: '0.75rem', color: 'var(--color-text-placeholder)', marginTop: '4px'}}>SVG files only</p>
+        <p style={{fontSize: '12px', color: styles.colors.textPlaceholder, marginTop: '4px'}}>SVG files only</p>
       </div>
     </div>
   );

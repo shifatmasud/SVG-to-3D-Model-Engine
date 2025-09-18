@@ -1,22 +1,63 @@
 import React from 'react';
+import CubeIcon from './icons/CubeIcon';
+import * as styles from '../styles';
 
 const Header: React.FC = () => {
   return (
-    <header className="app-header">
-      <div className="app-header__content">
-        <div className="app-header__logo-group">
-           <svg className="app-header__logo" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M2 7L12 12L22 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M12 12V22" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          <h1 className="app-header__title">
-            SVG to 3D Engine
+    <header style={headerStyle}>
+      <div style={contentStyle}>
+        <div style={logoGroupStyle}>
+           <CubeIcon style={logoStyle} />
+          <h1 style={titleStyle}>
+            SVG to 3D
           </h1>
         </div>
       </div>
     </header>
   );
 };
+
+const headerStyle: React.CSSProperties = {
+  position: 'absolute',
+  top: styles.spacing.md,
+  left: '50%',
+  transform: 'translateX(-50%)',
+  zIndex: 10,
+  width: 'fit-content',
+};
+
+const contentStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  height: '56px',
+  padding: `${styles.spacing.sm} ${styles.spacing.lg}`,
+  backgroundColor: styles.colors.surface,
+  borderRadius: styles.radii.lg,
+  border: `1px solid ${styles.colors.glassBorder}`,
+  boxShadow: styles.shadows.soft,
+  backdropFilter: 'blur(10px)',
+};
+
+const logoGroupStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: styles.spacing.sm,
+};
+
+const logoStyle: React.CSSProperties = {
+  height: '28px',
+  width: 'auto',
+  color: styles.colors.accent,
+};
+
+const titleStyle: React.CSSProperties = {
+  ...styles.typography.h2,
+  background: `linear-gradient(to right, ${styles.colors.textPrimary}, ${styles.colors.textSecondary})`,
+  WebkitBackgroundClip: 'text',
+  WebkitTextFillColor: 'transparent',
+  margin: 0,
+};
+
 
 export default Header;
