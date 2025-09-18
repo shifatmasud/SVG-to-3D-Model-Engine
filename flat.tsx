@@ -100,9 +100,9 @@ const createModelFromSVG = (svgString: string, extrusionDepth: number, bevelSegm
         transmission: materialProps.transmission,
         ior: materialProps.ior,
         thickness: materialProps.thickness,
-        // FIX: The 'morphTargets' property should be passed in the material constructor.
-        morphTargets: true,
     });
+    // FIX: The 'morphTargets' property must be set on the material instance, not in the constructor.
+    material.morphTargets = true;
     material.color.convertSRGBToLinear();
 
     if (path.userData?.style?.fill !== 'none' && path.userData?.style?.fill !== undefined) {
